@@ -4,20 +4,16 @@ Some useful code I wrote during my experiments in implementing the Transformer a
 
 This repository is inspired by [scaling experiments](https://github.com/sholtodouglas/scalingExperiments).
 
-## Contents
+- [English Wikipedia](enwiki/)
+- [BART](bart/)
 
-**[English Wikipedia](enwiki/)**
-
-Extract Wikipedia dump by WikiExtractor, then use Bling Fire to split articles into sentences.
+Setup:
 
 ```sh
-aria2c -x16 -s16 https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2
-python -m wikiextractor.WikiExtractor enwiki-latest-pages-articles.xml.bz2 --json -o dump
+python -m venv venv
+. venv/bin/activate
+pip install -U pip
+pip install -U wheel
+pip install "jax[tpu]==0.3.14" -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
+pip install -r requirements.txt
 ```
-
-**[BART](bart/)**
-
-A BART implementation in JAX. Its correctness is attested in the following ways:
-
-1. The model output is the same as the implementation in Flax
-1. The model can generate proper sentences
