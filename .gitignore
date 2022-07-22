@@ -1,3 +1,4 @@
+*.dat
 *.aria2
 .idea
 __pycache__

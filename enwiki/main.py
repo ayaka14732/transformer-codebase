@@ -1,22 +1,22 @@
+import jax
+jax.config.update('jax_platform_name', 'cpu')
+
+from flax.serialization import msgpack_serialize
 from glob import glob
 import json
 from multiprocessing import Pool, set_start_method
 from typing import List
 
 import blingfire
-import jax
 import jax.random as rand
 import numpy as np
 from transformers import BartTokenizer
 
-from lib.preprocess_utils.noising_tokenizer import tokenize_and_distort_sentences
-from lib.param_utils import save_params
+from lib.noising_tokenizer import tokenize_and_distort_sentences
 
-jax.config.update('jax_platform_name', 'cpu')
-
-sequence_len: int = 256
+sequence_len: int = 512
 assert sequence_len % 8 == 0
-n_files: int = 4
+n_files: int = 2
 key = rand.PRNGKey(42)
 
 def article_to_sentences(text: str) -> List[str]:
@@ -57,6 +57,11 @@ def pipeline(key, filename):
     dst, packed_mask_dec_1d = tokenize_sentences(tokenizer, sentences)
     src, packed_mask_enc_1d = tokenize_and_distort_sentences(key, tokenizer, sentences, sequence_len)
     return src, packed_mask_enc_1d, dst, packed_mask_dec_1d
+
+def save_params(params, filename):
+    serialized_params = msgpack_serialize(params)
+    with open(filename, 'wb') as f:
+        f.write(serialized_params)
 
 if __name__ == '__main__':
     set_start_method('spawn')
