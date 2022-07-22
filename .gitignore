@@ -1,0 +1,4 @@
+*.aria2
+.idea
+__pycache__
+venv
