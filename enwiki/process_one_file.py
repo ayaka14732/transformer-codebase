@@ -25,7 +25,10 @@ def process(filename_in: str, filename_out: str) -> List[str]:
             obj = json.loads(line)
             text = obj['text']
             sentences = article_to_sentences(text)
-            all_sentence.extend(sentences)
+            for sentence in sentences:
+                if sentence.count(' ') < 2:  # zero or one word
+                    continue
+                all_sentence.append(sentence)
     with open(filename_out, 'w', encoding='utf-8') as f:
         for sentence in all_sentence:
             assert '\n' not in sentence
