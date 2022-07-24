@@ -1,108 +1,35 @@
-import jax
-jax.config.update('jax_platform_name', 'cpu')
-
-from flax.serialization import msgpack_serialize
 from glob import glob
-import json
-from multiprocessing import Pool, set_start_method
-from typing import List
+from os import cpu_count
+import subprocess
+from tqdm import tqdm
+from typing import Any, List
 
-import blingfire
-import jax.random as rand
-import numpy as np
-from transformers import BartTokenizer
+assert subprocess.check_output(['python', '-V'], shell=False).startswith(b'Python 3')
 
-from lib.noising_tokenizer import tokenize_and_distort_sentences
+def make_chunks(lst: List[Any], n: int) -> List[List[Any]]:
+    '''Yield successive n-sized chunks from lst.'''
+    return [lst[i:i+n] for i in range(0, len(lst), n)]
 
-sequence_len: int = 512
-assert sequence_len % 8 == 0
-n_files: int = 2
-key = rand.PRNGKey(42)
+n_cpu = cpu_count()
+filepaths = glob('dump/*/*')
 
-def article_to_sentences(text: str) -> List[str]:
-    '''
-    ```python
-    >>> article_to_sentences('A cat. The mouse.')
-    ['A cat.', 'The mouse.']
-    >>> article_to_sentences('A long line\nwith wrapping. The mouse.')
-    ['A long line with wrapping.', 'The mouse.']
-    >>> article_to_sentences('\n    ')
-    []
-    ```
-    '''
-    if not text.strip():
-        return []
-    return blingfire.text_to_sentences(text).split('\n')
+def process_chunk(chunk_filepaths: List[str]):
+    processes = []
 
-def filename_to_sentences(filename: str) -> List[str]:
-    all_sentences = []
-    with open(filename, encoding='utf-8') as f:
-        for line in f:
-            obj = json.loads(line)
-            text = obj['text']
-            sentences = article_to_sentences(text)
-            all_sentences.extend(sentences)
-    return all_sentences
+    for filepath in chunk_filepaths:
+        _, dir_name, filename = filepath.split('/')
+        f_in = filepath
+        dir_out = f'dump2/{dir_name}'
+        f_out = f'{dir_out}/{filename}'
 
-def tokenize_sentences(tokenizer, sentences):
-    batch = tokenizer(sentences, max_length=sequence_len, padding='max_length', truncation=True, return_tensors='np')
-    src = batch.input_ids.astype(np.int32)
-    mask_1d = batch.attention_mask.astype(np.bool_)
-    packed_mask_1d = np.packbits(mask_1d, axis=1)
-    return src, packed_mask_1d
+        subprocess.call(['mkdir', '-p', dir_out], shell=False)
 
-def pipeline(key, filename):
-    tokenizer = BartTokenizer.from_pretrained('facebook/bart-base', add_prefix_space=True)
-    sentences = filename_to_sentences(filename)
-    dst, packed_mask_dec_1d = tokenize_sentences(tokenizer, sentences)
-    src, packed_mask_enc_1d = tokenize_and_distort_sentences(key, tokenizer, sentences, sequence_len)
-    return src, packed_mask_enc_1d, dst, packed_mask_dec_1d
+        p = subprocess.Popen(['python', 'process_one_file.py', f_in, f_out], shell=False)
+        processes.append(p)
 
-def save_params(params, filename):
-    serialized_params = msgpack_serialize(params)
-    with open(filename, 'wb') as f:
-        f.write(serialized_params)
+    for p in processes:
+        p.wait()
 
 if __name__ == '__main__':
-    set_start_method('spawn')
-
-    # list files
-
-    filenames = glob('./dump/*/*')[:n_files]
-    key, *subkeys = rand.split(key, num=len(filenames))
-
-    # process
-
-    with Pool() as p:
-        xs = p.starmap(pipeline, zip(subkeys, filenames))
-
-    # unzip
-
-    src = []
-    packed_mask_enc_1d = []
-    dst = []
-    packed_mask_dec_1d = []
-
-    for src_, packed_mask_enc_1d_, dst_, packed_mask_dec_1d_ in xs:
-        src.append(src_)
-        packed_mask_enc_1d.append(packed_mask_enc_1d_)
-        dst.append(dst_)
-        packed_mask_dec_1d.append(packed_mask_dec_1d_)
-
-    # write
-
-    src = np.vstack(src)
-    save_params(src, 'src.dat')
-    del src
-
-    packed_mask_enc_1d = np.vstack(packed_mask_enc_1d)
-    save_params(packed_mask_enc_1d, 'packed_mask_enc_1d.dat')
-    del packed_mask_enc_1d
-
-    dst = np.vstack(dst)
-    save_params(dst, 'dst.dat')
-    del dst
-
-    packed_mask_dec_1d = np.vstack(packed_mask_dec_1d)
-    save_params(packed_mask_dec_1d, 'packed_mask_dec_1d.dat')
-    del packed_mask_dec_1d
+    for chunk_filepaths in tqdm(make_chunks(filepaths, n_cpu)):
+        process_chunk(chunk_filepaths)
