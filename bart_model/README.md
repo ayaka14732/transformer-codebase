@@ -6,3 +6,92 @@ Its correctness is attested in the following ways:
 
 1. The model output is the same as the implementation in Flax
 1. The model can generate proper sentences
+
+## Conventions
+
+If a layer contains the dropout layer, `dropout_key` is provided as the last parameter.
+
+## Parameter format
+
+```
+embedding
+    embedding (50265, 768)
+encoder_embed_positions (1026, 768)
+decoder_embed_positions (1026, 768)
+encoder_embed_layer_norm
+    scale (768,)
+    bias (768,)
+decoder_embed_layer_norm
+    scale (768,)
+    bias (768,)
+encoder_layers
+    0..5
+        self_attn
+            q_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            k_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            v_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            ff
+                kernel (12, 64, 768)
+                bias (768,)
+        self_attn_layer_norm
+            scale (768,)
+            bias (768,)
+        ff0
+            kernel (768, 3072)
+            bias (3072,)
+        ff1
+            kernel (3072, 768)
+            bias (768,)
+        final_layer_norm
+            scale (768,)
+            bias (768,)
+decoder_layers
+    0..5
+        self_attn
+            q_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            k_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            v_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            ff
+                kernel (12, 64, 768)
+                bias (768,)
+        self_attn_layer_norm
+            scale (768,)
+            bias (768,)
+        cross_attn
+            q_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            k_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            v_proj
+                kernel (768, 12, 64)
+                bias (12, 64)
+            ff
+                kernel (12, 64, 768)
+                bias (768,)
+        cross_attn_layer_norm
+            scale (768,)
+            bias (768,)
+        ff0
+            kernel (768, 3072)
+            bias (3072,)
+        ff1
+            kernel (3072, 768)
+            bias (768,)
+        final_layer_norm
+            scale (768,)
+            bias (768,)
+```
